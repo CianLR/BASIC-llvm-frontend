@@ -32,10 +32,10 @@ bool BASICLexer::_push_instruction(std::stringstream &ss) {
         _push_IF(ss);
     } else if (instr == "PRINT") {
         _token_list.push_back(new PRINTToken());
-        _push_PRINT(ss);
+        _push_const_str(ss);
     } else if (instr == "PRINTLN") {
         _token_list.push_back(new PRINTLNToken());
-        _push_PRINTLN(ss);
+        _push_const_str(ss);
     } else {
         printf("Unknown instruction %s\n", instr.c_str());
         return false;
@@ -70,6 +70,7 @@ bool BASICLexer::_push_IF(std::stringstream &ss) {
         return false;
     }
     if (!_push_int_or_var(ss)) return false;
+    return true;
 }
 
 bool BASICLexer::_push_int_or_var(std::stringstream &ss) {
@@ -126,14 +127,9 @@ bool BASICLexer::_push_cmp(std::stringstream &ss) {
     return true;
 }
 
-bool BASICLexer::_push_PRINT(std::stringstream &ss) {
+bool BASICLexer::_push_const_str(std::stringstream &ss) {
     std::string const_str;
     ss >> const_str;
     _token_list.push_back(new StringValueToken(const_str));
-}
-
-bool BASICLexer::_push_PRINTLN(std::stringstream &ss) {
-    std::string const_str;
-    ss >> const_str;
-    _token_list.push_back(new StringValueToken(const_str + "\n"));
+    return true;
 }
