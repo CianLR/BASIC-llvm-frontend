@@ -210,18 +210,17 @@ PRINTInstruction::PRINTInstruction(int label, VarIntValueToken *var)
   : Instruction(label), _var(var) {}
 bool PRINTInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::cout << "Adding print\n";
+    std::vector<llvm::Value *> printf_args;
     if (_str != nullptr) {
         auto str_ptr = builder->CreateGlobalStringPtr(_str->getVal());
-        builder->CreateCall(
-            mod->getFunction("printf"),
-            std::vector<llvm::Value *>{str_ptr});
+        printf_args.push_back(str_ptr);
     } else {
         auto str_ptr = builder->CreateGlobalStringPtr("%d");
+        printf_args.push_back(str_ptr);
         llvm::Value *var = _get_var(builder, mod, _var->getVal());
-        builder->CreateCall(
-            mod->getFunction("printf"),
-            std::vector<llvm::Value *>{str_ptr, var});
+        printf_args.push_back(var);
     }
+    builder->CreateCall(mod->getFunction("printf"), printf_args);
     return true;
 }
 
@@ -231,18 +230,17 @@ PRINTLNInstruction::PRINTLNInstruction(int label, VarIntValueToken *var)
   : Instruction(label), _var(var) {}
 bool PRINTLNInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::cout << "Adding printLN\n";
+    std::vector<llvm::Value *> printf_args;
     if (_str != nullptr) {
         auto str_ptr = builder->CreateGlobalStringPtr(_str->getVal() + '\n');
-        builder->CreateCall(
-            mod->getFunction("printf"),
-            std::vector<llvm::Value *>{str_ptr});
+        printf_args.push_back(str_ptr);
     } else {
         auto str_ptr = builder->CreateGlobalStringPtr("%d\n");
+        printf_args.push_back(str_ptr);
         llvm::Value *var = _get_var(builder, mod, _var->getVal());
-        builder->CreateCall(
-            mod->getFunction("printf"),
-            std::vector<llvm::Value *>{str_ptr, var});
+        printf_args.push_back(var);
     }
+    builder->CreateCall(mod->getFunction("printf"), printf_args);
     return true;
 }
 
