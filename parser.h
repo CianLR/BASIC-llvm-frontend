@@ -15,8 +15,8 @@ class Instruction {
     int label;
     Instruction(int lbl);
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) = 0;
-  private:
-    bool _get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
+  protected:
+    llvm::Value *_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
 };
 class LETInstruction : public Instruction {
   public:
@@ -86,7 +86,7 @@ class BASICParser
     std::unique_ptr<llvm::IRBuilder<>> _builder;
 
     llvm::Function *_main;
-    llvm::Function *_puts;
+    llvm::Function *_printf;
 
     bool _make_let(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);
     bool _make_if(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);

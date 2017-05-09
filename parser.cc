@@ -43,9 +43,14 @@ llvm::Module *BASICParser::generateModule() {
     if (!_create_vars()) return nullptr;
 
     for (auto it : _instrs) {
+        if (_blocks.find(it.first) != _blocks.end()) {
+            _builder->CreateBr(_blocks[it.first]);
+            _builder->SetInsertPoint(_blocks[it.first]);
+        }
         if (!it.second->addToBuilder(_builder.get(), _mod.get())) return nullptr;
     }
 
+    _builder->CreateBr(_blocks.rbegin()->second);
     _builder->SetInsertPoint(_blocks.rbegin()->second);
     _builder->CreateRet(
         llvm::ConstantInt::get(
@@ -55,21 +60,20 @@ llvm::Module *BASICParser::generateModule() {
 }
 
 bool BASICParser::_create_functions() {
-    // Puts
-    std::vector<llvm::Type *> puts_args = {llvm::Type::getInt8PtrTy(_global_ctx)};
-    llvm::FunctionType *puts_type = llvm::FunctionType::get(
+    // printf
+    std::vector<llvm::Type *> printf_args = {llvm::Type::getInt8PtrTy(_global_ctx)};
+    llvm::FunctionType *printf_type = llvm::FunctionType::get(
         llvm::Type::getInt32Ty(_global_ctx),
-        puts_args,
+        printf_args,
         true);
-    _puts = llvm::Function::Create(
-        puts_type,
+    _printf = llvm::Function::Create(
+        printf_type,
         llvm::Function::ExternalLinkage,
         "printf",
         _mod.get());
-    _puts->setCallingConv(llvm::CallingConv::C);
-    // _puts->addAttribute(0, llvm::Attribute::NoUnwind);
-    _puts->addAttribute(1, llvm::Attribute::NoCapture);
-    // Main
+    _printf->setCallingConv(llvm::CallingConv::C);
+    _printf->addAttribute(1, llvm::Attribute::NoCapture);
+    // main
     llvm::FunctionType *main_type = llvm::FunctionType::get(
         llvm::Type::getInt32Ty(_global_ctx),
         std::vector<llvm::Type *>(),
@@ -107,12 +111,18 @@ bool BASICParser::_create_blocks() {
 }
 
 bool BASICParser::_create_vars() {
-    llvm::Value *arr_len = llvm::ConstantInt::get(
-        llvm::Type::getInt32Ty(_global_ctx), 0);
     llvm::ArrayType *arr_type = llvm::ArrayType::get(
         llvm::Type::getInt32Ty(_global_ctx),
         26);
-    _builder->CreateAlloca(arr_type, arr_len, "vars");
+    llvm::ConstantAggregateZero *arr_default = llvm::ConstantAggregateZero::get(arr_type);
+    llvm::GlobalVariable *g_vars = new llvm::GlobalVariable(
+        *_mod,
+        arr_type,
+        false,
+        llvm::GlobalValue::ExternalLinkage,
+        0,
+        "vars");
+    g_vars->setInitializer(arr_default);
     return true;
 }
 
@@ -185,10 +195,13 @@ void BASICParser::dumpMap() {
 
 // Instruction definitions
 Instruction::Instruction(int lbl) : label(lbl) {}
-bool Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
-    int v_idx = var - 65;
-    
-    return true;
+llvm::Value *Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
+    llvm::Value *index = llvm::ConstantInt::get(
+        llvm::Type::getInt32Ty(mod->getContext()), var - 65);
+    auto vars = mod->getGlobalVariable("vars");
+    llvm::Value *elm_ptr = builder->CreateGEP(vars, index);
+    llvm::Value *elm = builder->CreateLoad(elm_ptr);
+    return elm;
 }
 
 PRINTInstruction::PRINTInstruction(int label, StringValueToken *str)
@@ -203,7 +216,11 @@ bool PRINTInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mo
             mod->getFunction("printf"),
             std::vector<llvm::Value *>{str_ptr});
     } else {
-
+        auto str_ptr = builder->CreateGlobalStringPtr("%d");
+        llvm::Value *var = _get_var(builder, mod, _var->getVal());
+        builder->CreateCall(
+            mod->getFunction("printf"),
+            std::vector<llvm::Value *>{str_ptr, var});
     }
     return true;
 }
@@ -220,7 +237,11 @@ bool PRINTLNInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *
             mod->getFunction("printf"),
             std::vector<llvm::Value *>{str_ptr});
     } else {
-
+        auto str_ptr = builder->CreateGlobalStringPtr("%d\n");
+        llvm::Value *var = _get_var(builder, mod, _var->getVal());
+        builder->CreateCall(
+            mod->getFunction("printf"),
+            std::vector<llvm::Value *>{str_ptr, var});
     }
     return true;
 }
