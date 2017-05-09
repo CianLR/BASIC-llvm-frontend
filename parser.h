@@ -12,17 +12,20 @@
 
 class Instruction {
   public:
-    void markAsLandingInstruction() {_landing_instr = true;}
-    bool isLandingInstruction() {return _landing_instr;}
+    int label;
+    Instruction(int lbl);
+    virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) = 0;
   private:
-    bool _landing_instr = false;
+    bool _get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
 };
 class LETInstruction : public Instruction {
   public:
-    LETInstruction(VarIntValueToken *var,
+    LETInstruction(int label,
+                   VarIntValueToken *var,
                    IntValueToken *rhs,
                    OpToken *op = nullptr,
                    IntValueToken *lhs = nullptr);
+    virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
     VarIntValueToken *_var;
     IntValueToken *_rhs;
@@ -31,34 +34,42 @@ class LETInstruction : public Instruction {
 };
 class IFInstruction : public Instruction {
   public:
-    IFInstruction(IntValueToken *lhs,
+    IFInstruction(int label,
+                  IntValueToken *lhs,
                   CmpToken *cmp,
                   IntValueToken *rhs,
-                  ConstIntValueToken *label);
+                  ConstIntValueToken *true_label);
+    virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
     IntValueToken *_lhs;
     CmpToken *_cmp;
     IntValueToken *_rhs;
-    ConstIntValueToken *_label;
+    ConstIntValueToken *_true_label;
 };
 class PRINTInstruction : public Instruction {
   public:
-    PRINTInstruction(StringValueToken *str);
+    PRINTInstruction(int label, StringValueToken *str);
+    PRINTInstruction(int label, VarIntValueToken *var);
+    virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
-    StringValueToken *_str;
+    StringValueToken *_str = nullptr;
+    VarIntValueToken *_var = nullptr;
 };
 class PRINTLNInstruction : public Instruction {
   public:
-    PRINTLNInstruction(StringValueToken *str);
+    PRINTLNInstruction(int label, StringValueToken *str);
+    PRINTLNInstruction(int label, VarIntValueToken *var);
+    virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
-    StringValueToken *_str;
+    StringValueToken *_str = nullptr;
+    VarIntValueToken *_var = nullptr;
 };
 
 
 class BASICParser
 {
   public:
-    BASICParser() : _mod("BASIC", _global_ctx), _builder(_global_ctx) {}
+    BASICParser();
     // ~BASICParser();
 
     bool parseFromTokenList(const std::vector<Token *> &tk_lst);
@@ -66,17 +77,25 @@ class BASICParser
     void dumpMap();
 
   private:
+    std::map<int, llvm::BasicBlock *> _blocks;
     std::map<int, Instruction *> _instrs;
     std::set<int> _jump_landings;
-    llvm::IRBuilder<> _builder;
+    std::set<int> _jump_fallthrough;
     llvm::LLVMContext _global_ctx;
-    llvm::Module _mod;
+    std::unique_ptr<llvm::Module> _mod;
+    std::unique_ptr<llvm::IRBuilder<>> _builder;
 
-    bool _make_let(const std::vector<Token *> &tk_list, int &curr_pos, int label);
-    bool _make_if(const std::vector<Token *> &tk_list, int &curr_pos, int label);
-    bool _make_print(const std::vector<Token *> &tk_list, int &curr_pos, int label);
-    bool _make_println(const std::vector<Token *> &tk_list, int &curr_pos, int label);
+    llvm::Function *_main;
+    llvm::Function *_puts;
+
+    bool _make_let(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);
+    bool _make_if(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);
+    bool _make_print(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);
+    bool _make_println(const std::vector<Token *> &tk_list, unsigned int &curr_pos, int label);
     
+    bool _create_functions();
+    bool _create_blocks();
+    bool _create_vars();
 };
 
 
