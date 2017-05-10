@@ -16,7 +16,9 @@ class Instruction {
     Instruction(int lbl);
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) = 0;
   protected:
+    llvm::Value *_get_var_ptr(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
     llvm::Value *_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
+    llvm::Value *_set_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var, llvm::Value *val);
 };
 class LETInstruction : public Instruction {
   public:

@@ -99,6 +99,7 @@ bool BASICParser::_create_blocks() {
             bb_labels.insert(instr_it->first);
         }
     }
+    // End block, maybe not needed?
     bb_labels.insert(_instrs.rbegin()->first + 1);
     std::cout << "Split into " << bb_labels.size() << " blocks\n";
     // Generate a block for each label
@@ -193,15 +194,27 @@ void BASICParser::dumpMap() {
     std::cout << "Number of instructions in map: " << _instrs.size() << std::endl;
 }
 
+//
 // Instruction definitions
+//
 Instruction::Instruction(int lbl) : label(lbl) {}
-llvm::Value *Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
+llvm::Value *Instruction::_get_var_ptr(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
     llvm::Value *index = llvm::ConstantInt::get(
         llvm::Type::getInt32Ty(mod->getContext()), var - 65);
+    llvm::Value *zero = llvm::ConstantInt::get(
+        llvm::Type::getInt32Ty(mod->getContext()), 0);
     auto vars = mod->getGlobalVariable("vars");
-    llvm::Value *elm_ptr = builder->CreateGEP(vars, index);
-    llvm::Value *elm = builder->CreateLoad(elm_ptr);
+    llvm::Value *elm_ptr = builder->CreateGEP(
+        vars,
+        std::vector<llvm::Value *>{index, zero});
+    return elm_ptr;
+}
+llvm::Value *Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
+    llvm::Value *elm = builder->CreateLoad(_get_var_ptr(builder, mod, var));
     return elm;
+}
+llvm::Value *Instruction::_set_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var, llvm::Value *val) {
+    return builder->CreateStore(val, _get_var_ptr(builder, mod, var));
 }
 
 PRINTInstruction::PRINTInstruction(int label, StringValueToken *str)
@@ -252,6 +265,20 @@ LETInstruction::LETInstruction(int label,
   : Instruction(label), _var(var), _rhs(rhs), _op(op), _lhs(lhs) {}
 bool LETInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::cout << "Adding Let\n";
+    if (_op == nullptr) {
+        llvm::Value *single_store;
+        if (_rhs->getName() == "ConstIntValueToken") {
+            single_store = llvm::ConstantInt::get(
+                llvm::Type::getInt32Ty(mod->getContext()),
+                static_cast<ConstIntValueToken *>(_rhs)->getVal());
+        } else {
+            single_store = _get_var(
+                builder,
+                mod,
+                static_cast<VarIntValueToken *>(_rhs)->getVal());
+        }
+        _set_var(builder, mod, _var->getVal(), single_store);
+    }
     return true;
 }
 
