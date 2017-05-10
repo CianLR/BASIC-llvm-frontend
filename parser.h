@@ -78,11 +78,9 @@ class BASICParser
 {
   public:
     BASICParser();
-    // ~BASICParser();
 
     bool parseFromTokenList(const std::vector<Token *> &tk_lst);
     llvm::Module *generateModule();
-    void dumpMap();
 
   private:
     std::map<int, llvm::BasicBlock *> _blocks;

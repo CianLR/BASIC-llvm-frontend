@@ -1,5 +1,5 @@
 #include <vector>
-#include <iostream>  // Remove plz
+#include <iostream>
 #include <llvm/IR/Module.h>
 #include <llvm/IR/IRBuilder.h>
 #include "tokens.h"
@@ -104,7 +104,6 @@ bool BASICParser::_create_blocks() {
     }
     // End block, needed for programs ending in IF
     bb_labels.insert(_instrs.rbegin()->first + 1);
-    std::cout << "Split into " << bb_labels.size() << " blocks\n";
     // Generate a block for each label
     for (auto label : bb_labels) {
         _blocks[label] = llvm::BasicBlock::Create(
@@ -192,12 +191,6 @@ bool BASICParser::_make_println(const std::vector<Token *> &tk_lst, unsigned int
     return true;
 }
 
-void BASICParser::dumpMap() {
-    std::cout << "Jump landing locations:" << std::endl;
-    for (auto it : _jump_landings) std::cout << it << std::endl;
-    std::cout << "Number of instructions in map: " << _instrs.size() << std::endl;
-}
-
 //
 // Instruction definitions
 //
@@ -237,7 +230,6 @@ PRINTInstruction::PRINTInstruction(int label, StringValueToken *str)
 PRINTInstruction::PRINTInstruction(int label, VarIntValueToken *var)
   : Instruction(label), _var(var) {}
 bool PRINTInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
-    std::cout << "Adding print\n";
     std::vector<llvm::Value *> printf_args;
     if (_str != nullptr) {
         auto str_ptr = builder->CreateGlobalStringPtr(_str->getVal());
@@ -257,7 +249,6 @@ PRINTLNInstruction::PRINTLNInstruction(int label, StringValueToken *str)
 PRINTLNInstruction::PRINTLNInstruction(int label, VarIntValueToken *var)
   : Instruction(label), _var(var) {}
 bool PRINTLNInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
-    std::cout << "Adding printLN\n";
     std::vector<llvm::Value *> printf_args;
     if (_str != nullptr) {
         auto str_ptr = builder->CreateGlobalStringPtr(_str->getVal() + '\n');
@@ -291,7 +282,6 @@ llvm::Value *LETInstruction::_calc_op(llvm::IRBuilder<> *build, llvm::Value *l, 
     return nullptr;
 }
 bool LETInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
-    std::cout << "Adding Let\n";
     if (_op == nullptr) {
         llvm::Value *single_store = _token_to_value(builder, mod, _lhs);
         _set_var(builder, mod, _var->getVal(), single_store);
@@ -328,7 +318,6 @@ llvm::Value *IFInstruction::_calc_cmp(llvm::IRBuilder<> *build, llvm::Value *l, 
     return nullptr;
 }
 bool IFInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
-    std::cout << "Adding IF\n";
     llvm::Value *left = _token_to_value(builder, mod, _lhs);
     llvm::Value *right = _token_to_value(builder, mod, _rhs);
     llvm::Value *result = _calc_cmp(builder, left, right);
