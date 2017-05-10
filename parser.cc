@@ -42,15 +42,18 @@ llvm::Module *BASICParser::generateModule() {
     if (!_create_blocks()) return nullptr;
     if (!_create_vars()) return nullptr;
 
+    bool after_jump = false;
     for (auto it : _instrs) {
         if (_blocks.find(it.first) != _blocks.end()) {
-            _builder->CreateBr(_blocks[it.first]);
+            if (_jump_landings.find(it.first) != _jump_landings.end() and !after_jump)
+                _builder->CreateBr(_blocks[it.first]);
             _builder->SetInsertPoint(_blocks[it.first]);
         }
         if (!it.second->addToBuilder(_builder.get(), _mod.get())) return nullptr;
+        after_jump = _jump_fallthrough.find(it.first) != _jump_fallthrough.end();
     }
 
-    _builder->CreateBr(_blocks.rbegin()->second);
+    if (!after_jump) _builder->CreateBr(_blocks.rbegin()->second);
     _builder->SetInsertPoint(_blocks.rbegin()->second);
     _builder->CreateRet(
         llvm::ConstantInt::get(
@@ -90,7 +93,7 @@ bool BASICParser::_create_functions() {
 bool BASICParser::_create_blocks() {
     // Get all the labels that the blocks should be attached to
     std::set<int> bb_labels;
-    bb_labels.insert(0);
+    bb_labels.insert(_instrs.begin()->first);
     for (auto label : _jump_landings) bb_labels.insert(label);
     for (auto fallthrough_it : _jump_fallthrough) {
         auto instr_it = _instrs.find(fallthrough_it);
@@ -99,7 +102,7 @@ bool BASICParser::_create_blocks() {
             bb_labels.insert(instr_it->first);
         }
     }
-    // End block, maybe not needed?
+    // End block, needed for programs ending in IF
     bb_labels.insert(_instrs.rbegin()->first + 1);
     std::cout << "Split into " << bb_labels.size() << " blocks\n";
     // Generate a block for each label
@@ -107,7 +110,7 @@ bool BASICParser::_create_blocks() {
         _blocks[label] = llvm::BasicBlock::Create(
             _global_ctx, std::to_string(label), _main, 0);
     }
-    _builder->SetInsertPoint(_blocks[0]);
+    _builder->SetInsertPoint(_blocks[_instrs.begin()->first]);
     return true;
 }
 
@@ -151,6 +154,7 @@ bool BASICParser::_make_if(const std::vector<Token *> &tk_lst, unsigned int &cur
     _jump_landings.insert(landing_label->getVal());
     _jump_fallthrough.insert(label);
     _instrs[label] = new IFInstruction(
+        &_blocks,
         label,
         static_cast<IntValueToken *>(tk_lst[curr_pos + 1]),
         static_cast<CmpToken *>(tk_lst[curr_pos + 2]),
@@ -215,6 +219,18 @@ llvm::Value *Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod
 llvm::Value *Instruction::_set_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var, llvm::Value *val) {
     return builder->CreateStore(val, _get_var_ptr(builder, mod, var));
 }
+llvm::Value *Instruction::_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok) {
+    if (tok->getName() == "ConstIntValueToken") {
+        return llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(mod->getContext()),
+            static_cast<ConstIntValueToken *>(tok)->getVal());
+    } else {
+        return _get_var(
+            build,
+            mod,
+            static_cast<VarIntValueToken *>(tok)->getVal());
+    }
+}
 
 PRINTInstruction::PRINTInstruction(int label, StringValueToken *str)
   : Instruction(label), _str(str) {}
@@ -262,18 +278,6 @@ LETInstruction::LETInstruction(int label,
                                OpToken *op,
                                IntValueToken *rhs)
   : Instruction(label), _var(var), _lhs(lhs), _op(op), _rhs(rhs) {}
-llvm::Value *LETInstruction::_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok) {
-    if (tok->getName() == "ConstIntValueToken") {
-        return llvm::ConstantInt::get(
-            llvm::Type::getInt32Ty(mod->getContext()),
-            static_cast<ConstIntValueToken *>(tok)->getVal());
-    } else {
-        return _get_var(
-            build,
-            mod,
-            static_cast<VarIntValueToken *>(tok)->getVal());
-    }
-}
 llvm::Value *LETInstruction::_calc_op(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r) {
     if (_op->getName() == "PlusToken") {
         return build->CreateAdd(l, r);
@@ -300,13 +304,42 @@ bool LETInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod)
     return true;
 }
 
-IFInstruction::IFInstruction(int label,
+IFInstruction::IFInstruction(std::map<int, llvm::BasicBlock *> *blocks,
+                             int label,
                              IntValueToken *lhs,
                              CmpToken *cmp,
                              IntValueToken *rhs,
                              ConstIntValueToken *true_label)
-  : Instruction(label), _lhs(lhs), _cmp(cmp), _rhs(rhs), _true_label(true_label) {}
+  : Instruction(label), _blocks(blocks), _label(label), _lhs(lhs), _cmp(cmp), _rhs(rhs), _true_label(true_label) {}
+llvm::Value *IFInstruction::_calc_cmp(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r) {
+    if (_cmp->getName() == "EqToken") {
+        return build->CreateICmpEQ(l, r);
+    } else if (_cmp->getName() == "LtToken") {
+        return build->CreateICmpSLT(l, r);
+    } else if (_cmp->getName() == "GtToken") {
+        return build->CreateICmpSGT(l, r);
+    } else if (_cmp->getName() == "NeToken") {
+        return build->CreateICmpNE(l, r);
+    } else if (_cmp->getName() == "LteToken") {
+        return build->CreateICmpSLE(l, r);
+    } else if (_cmp->getName() == "GteToken") {
+        return build->CreateICmpSGE(l, r);
+    }
+    return nullptr;
+}
 bool IFInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::cout << "Adding IF\n";
+    llvm::Value *left = _token_to_value(builder, mod, _lhs);
+    llvm::Value *right = _token_to_value(builder, mod, _rhs);
+    llvm::Value *result = _calc_cmp(builder, left, right);
+    llvm::BasicBlock *true_block = (*_blocks)[_true_label->getVal()];
+    llvm::BasicBlock *fallthrough_block;
+    for (auto it : *_blocks) {
+        if (it.first > _label) {
+            fallthrough_block = it.second;
+            break;
+        }
+    }
+    builder->CreateCondBr(result, true_block, fallthrough_block);
     return true;
 }

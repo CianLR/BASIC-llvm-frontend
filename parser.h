@@ -16,6 +16,7 @@ class Instruction {
     Instruction(int lbl);
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) = 0;
   protected:
+    llvm::Value *_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok);
     llvm::Value *_get_var_ptr(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
     llvm::Value *_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var);
     llvm::Value *_set_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var, llvm::Value *val);
@@ -33,22 +34,25 @@ class LETInstruction : public Instruction {
     IntValueToken *_lhs;
     OpToken *_op;
     IntValueToken *_rhs;
-    llvm::Value *_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok);
     llvm::Value *_calc_op(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r);
 };
 class IFInstruction : public Instruction {
   public:
-    IFInstruction(int label,
+    IFInstruction(std::map<int, llvm::BasicBlock *> *blocks,
+                  int label,
                   IntValueToken *lhs,
                   CmpToken *cmp,
                   IntValueToken *rhs,
                   ConstIntValueToken *true_label);
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
+    std::map<int, llvm::BasicBlock *> *_blocks;
+    int _label;
     IntValueToken *_lhs;
     CmpToken *_cmp;
     IntValueToken *_rhs;
     ConstIntValueToken *_true_label;
+    llvm::Value *_calc_cmp(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r);
 };
 class PRINTInstruction : public Instruction {
   public:
