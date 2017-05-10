@@ -30,9 +30,11 @@ class LETInstruction : public Instruction {
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
     VarIntValueToken *_var;
-    IntValueToken *_rhs;
-    OpToken *_op;
     IntValueToken *_lhs;
+    OpToken *_op;
+    IntValueToken *_rhs;
+    llvm::Value *_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok);
+    llvm::Value *_calc_op(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r);
 };
 class IFInstruction : public Instruction {
   public:

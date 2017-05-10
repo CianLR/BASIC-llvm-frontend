@@ -140,7 +140,7 @@ bool BASICParser::_make_let(const std::vector<Token *> &tk_lst, unsigned int &cu
             static_cast<VarIntValueToken *>(tk_lst[curr_pos + 1]),
             static_cast<IntValueToken *>(tk_lst[curr_pos + 2]),
             static_cast<OpToken *>(tk_lst[curr_pos + 3]),
-            static_cast<IntValueToken *>(tk_lst[curr_pos + 2]));
+            static_cast<IntValueToken *>(tk_lst[curr_pos + 4]));
         curr_pos += 5;
     }
     return true;
@@ -210,8 +210,7 @@ llvm::Value *Instruction::_get_var_ptr(llvm::IRBuilder<> *builder, llvm::Module 
     return elm_ptr;
 }
 llvm::Value *Instruction::_get_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var) {
-    llvm::Value *elm = builder->CreateLoad(_get_var_ptr(builder, mod, var));
-    return elm;
+    return builder->CreateLoad(_get_var_ptr(builder, mod, var));
 }
 llvm::Value *Instruction::_set_var(llvm::IRBuilder<> *builder, llvm::Module *mod, char var, llvm::Value *val) {
     return builder->CreateStore(val, _get_var_ptr(builder, mod, var));
@@ -259,25 +258,44 @@ bool PRINTLNInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *
 
 LETInstruction::LETInstruction(int label,
                                VarIntValueToken *var,
-                               IntValueToken *rhs,
+                               IntValueToken *lhs,
                                OpToken *op,
-                               IntValueToken *lhs)
-  : Instruction(label), _var(var), _rhs(rhs), _op(op), _lhs(lhs) {}
+                               IntValueToken *rhs)
+  : Instruction(label), _var(var), _lhs(lhs), _op(op), _rhs(rhs) {}
+llvm::Value *LETInstruction::_token_to_value(llvm::IRBuilder<> *build, llvm::Module *mod, IntValueToken *tok) {
+    if (tok->getName() == "ConstIntValueToken") {
+        return llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(mod->getContext()),
+            static_cast<ConstIntValueToken *>(tok)->getVal());
+    } else {
+        return _get_var(
+            build,
+            mod,
+            static_cast<VarIntValueToken *>(tok)->getVal());
+    }
+}
+llvm::Value *LETInstruction::_calc_op(llvm::IRBuilder<> *build, llvm::Value *l, llvm::Value *r) {
+    if (_op->getName() == "PlusToken") {
+        return build->CreateAdd(l, r);
+    } else if (_op->getName() == "MinusToken") {
+        return build->CreateSub(l, r);
+    } else if (_op->getName() == "MulToken") {
+        return build->CreateMul(l, r);
+    } else if (_op->getName() == "DivToken") {
+        return build->CreateSDiv(l, r);
+    }
+    return nullptr;
+}
 bool LETInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::cout << "Adding Let\n";
     if (_op == nullptr) {
-        llvm::Value *single_store;
-        if (_rhs->getName() == "ConstIntValueToken") {
-            single_store = llvm::ConstantInt::get(
-                llvm::Type::getInt32Ty(mod->getContext()),
-                static_cast<ConstIntValueToken *>(_rhs)->getVal());
-        } else {
-            single_store = _get_var(
-                builder,
-                mod,
-                static_cast<VarIntValueToken *>(_rhs)->getVal());
-        }
+        llvm::Value *single_store = _token_to_value(builder, mod, _lhs);
         _set_var(builder, mod, _var->getVal(), single_store);
+    } else {
+        llvm::Value *left = _token_to_value(builder, mod, _lhs);
+        llvm::Value *right = _token_to_value(builder, mod, _rhs);
+        llvm::Value *result = _calc_op(builder, left, right);
+        _set_var(builder, mod, _var->getVal(), result);
     }
     return true;
 }
