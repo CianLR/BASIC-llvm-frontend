@@ -4,7 +4,7 @@
 #include <llvm/Support/raw_ostream.h>
 #include <llvm/Support/FileSystem.h>
 
-#if LLVM_VERSION_MAJOR >= 5
+#if LLVM_VERSION_MAJOR >= 4
 #include <llvm/Bitcode/BitcodeWriter.h>
 #else
 #include <llvm/Bitcode/ReaderWriter.h>
