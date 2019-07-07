@@ -168,6 +168,12 @@ bool BASICParser::_make_print(const std::vector<Token *> &tk_lst, unsigned int &
         _instrs[label] = new PRINTInstruction(
             label,
             static_cast<StringValueToken *>(tk_lst[curr_pos + 1]));
+    }
+    else if (tk_lst[curr_pos + 1]->getName() == "ConstIntValueToken")
+    {
+        _instrs[label] = new PRINTInstruction(
+            label,
+            static_cast<ConstIntValueToken*>(tk_lst[curr_pos + 1]));
     } else {
         _instrs[label] = new PRINTInstruction(
             label,
@@ -229,12 +235,23 @@ PRINTInstruction::PRINTInstruction(int label, StringValueToken *str)
   : Instruction(label), _str(str) {}
 PRINTInstruction::PRINTInstruction(int label, VarIntValueToken *var)
   : Instruction(label), _var(var) {}
+PRINTInstruction::PRINTInstruction(int label, ConstIntValueToken* number)
+    : Instruction(label), _number(number) {}
 bool PRINTInstruction::addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) {
     std::vector<llvm::Value *> printf_args;
     if (_str != nullptr) {
         auto str_ptr = builder->CreateGlobalStringPtr(_str->getVal());
         printf_args.push_back(str_ptr);
-    } else {
+    } else if (_number != nullptr) {
+        auto str_ptr = builder->CreateGlobalStringPtr("%d");
+        printf_args.push_back(str_ptr);
+        llvm::Value *var = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(mod->getContext()),
+            _number->getVal());
+        printf_args.push_back(var);
+        }
+    else
+    {
         auto str_ptr = builder->CreateGlobalStringPtr("%d");
         printf_args.push_back(str_ptr);
         llvm::Value *var = _get_var(builder, mod, _var->getVal());

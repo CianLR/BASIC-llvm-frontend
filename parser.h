@@ -58,10 +58,12 @@ class PRINTInstruction : public Instruction {
   public:
     PRINTInstruction(int label, StringValueToken *str);
     PRINTInstruction(int label, VarIntValueToken *var);
+    PRINTInstruction(int label, ConstIntValueToken *var);
     virtual bool addToBuilder(llvm::IRBuilder<> *builder, llvm::Module *mod) override;
   private:
     StringValueToken *_str = nullptr;
     VarIntValueToken *_var = nullptr;
+    ConstIntValueToken *_number = nullptr;
 };
 class PRINTLNInstruction : public Instruction {
   public:

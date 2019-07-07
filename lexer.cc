@@ -128,14 +128,19 @@ bool BASICLexer::_push_cmp(std::stringstream &ss) {
 }
 
 bool BASICLexer::_push_const_str(std::stringstream &ss) {
-    std::string temp;
-    ss >> temp;
-    if (temp[0] != '"') {
+    while (std::isspace(ss.peek())) ss.ignore();
+    if (std::isdigit(ss.peek())) {
+        int value;
+        ss >> value;
+        _token_list.push_back(new ConstIntValueToken(value));
+    }
+    else if (ss.peek() != '"') {
+        std::string temp;
+        ss >> temp;
         _token_list.push_back(new VarIntValueToken(temp[0]));
     } else {
         std::string const_str;
         std::getline(ss, const_str);
-        const_str = temp + const_str;
         _token_list.push_back(
             new StringValueToken(const_str.substr(1, const_str.length() - 2)));
     }
