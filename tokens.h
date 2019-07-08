@@ -9,7 +9,7 @@
 //
 class Token {
   public:
-    virtual std::string getName() = 0;
+    virtual std::string getName() const = 0;
 };
 
 //
@@ -17,7 +17,7 @@ class Token {
 //
 class SyntaxToken : public Token {};
 class EOLToken : public SyntaxToken {
-    virtual std::string getName() {return "EOLToken";}
+    virtual std::string getName() const {return "EOLToken";}
 };
 
 //
@@ -28,7 +28,7 @@ class StringValueToken : public ValueToken {
   public:
     StringValueToken(std::string val) {_val = val;}
     std::string getVal() {return _val;}
-    virtual std::string getName() {return "StringValueToken";}
+    virtual std::string getName() const {return "StringValueToken";}
   private:
     std::string _val;
 };
@@ -37,7 +37,7 @@ class ConstIntValueToken : public IntValueToken {
   public:
     ConstIntValueToken(int val) {_val = val;}
     int getVal() {return _val;}
-    virtual std::string getName() {return "ConstIntValueToken";}
+    virtual std::string getName() const {return "ConstIntValueToken";}
   private:
     int _val;
 };
@@ -45,7 +45,7 @@ class VarIntValueToken : public IntValueToken {
   public:
     VarIntValueToken(char val) {_val = val;}
     char getVal() {return _val;}
-    virtual std::string getName() {return "VarIntValueToken";}
+    virtual std::string getName() const {return "VarIntValueToken";}
   public:
     char _val;
 };
@@ -55,16 +55,16 @@ class VarIntValueToken : public IntValueToken {
 //
 class OpToken : public Token {};
 class PlusToken : public OpToken {
-    virtual std::string getName() {return "PlusToken";}
+    virtual std::string getName() const {return "PlusToken";}
 };
 class MinusToken : public OpToken {
-    virtual std::string getName() {return "MinusToken";}
+    virtual std::string getName() const {return "MinusToken";}
 };
 class MulToken : public OpToken {
-    virtual std::string getName() {return "MulToken";}
+    virtual std::string getName() const {return "MulToken";}
 };
 class DivToken : public OpToken {
-    virtual std::string getName() {return "DivToken";}
+    virtual std::string getName() const {return "DivToken";}
 };
 
 //
@@ -72,22 +72,22 @@ class DivToken : public OpToken {
 //
 class CmpToken : public Token {};
 class EqToken : public CmpToken {
-    virtual std::string getName() {return "EqToken";}
+    virtual std::string getName() const {return "EqToken";}
 };
 class LtToken : public CmpToken {
-    virtual std::string getName() {return "LtToken";}
+    virtual std::string getName() const {return "LtToken";}
 };
 class GtToken : public CmpToken {
-    virtual std::string getName() {return "GtToken";}
+    virtual std::string getName() const {return "GtToken";}
 };
 class NeToken : public CmpToken {
-    virtual std::string getName() {return "NeToken";}
+    virtual std::string getName() const {return "NeToken";}
 };
 class LteToken : public CmpToken {
-    virtual std::string getName() {return "LteToken";}
+    virtual std::string getName() const {return "LteToken";}
 };
 class GteToken : public CmpToken {
-    virtual std::string getName() {return "GteToken";}
+    virtual std::string getName() const {return "GteToken";}
 };
 
 //
@@ -95,16 +95,16 @@ class GteToken : public CmpToken {
 //
 class InstrToken : public Token {};
 class LETToken : public InstrToken {
-    virtual std::string getName() {return "LETToken";}
+    virtual std::string getName() const {return "LETToken";}
 };
 class IFToken : public InstrToken {
-    virtual std::string getName() {return "IFToken";}
+    virtual std::string getName() const {return "IFToken";}
 };
 class PRINTToken : public InstrToken {
-    virtual std::string getName() {return "PRINTToken";}
+    virtual std::string getName() const {return "PRINTToken";}
 };
 class PRINTLNToken : public InstrToken {
-    virtual std::string getName() {return "PRINTLNToken";}
+    virtual std::string getName() const {return "PRINTLNToken";}
 };
 
 #endif  // TOKENS_H_
